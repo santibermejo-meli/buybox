@@ -9,8 +9,9 @@ sel a1.tim_day,
   cg.asesor_id,
   cg.tipofoco,
   cg.ite_official_store_id,
-  SUM(a1.optineable) as optineables,
-  SUM(a1.en_bb) as en_bb
+  a1.ite_item_id,
+  a1.optineable,
+  a1.en_bb
 from WHOWNER.LK_SALES_CARTERA_GESTIONADA_AC cg
   LEFT JOIN (sel i.tim_day,
       i.cus_cust_id_sel,
@@ -38,6 +39,5 @@ from WHOWNER.LK_SALES_CARTERA_GESTIONADA_AC cg
       and a1.ITE_OFFICIAL_STORE_ID = cg.ITE_OFFICIAL_STORE_ID
   join WHOWNER.LK_CUS_CUSTOMERS_DATA cu
     on a1.cus_cust_id_sel = cu.cus_cust_id
-group by 1,2,3,4,5,6,7,8,9
 ) 
-	WITH DATA INDEX(TIM_DAY ,SIT_SITE_ID , DOM_DOMAIN_ID);
+	WITH DATA INDEX(TIM_DAY, SIT_SITE_ID, DOM_DOMAIN_ID);
