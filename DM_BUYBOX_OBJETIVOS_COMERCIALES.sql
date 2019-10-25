@@ -10,8 +10,8 @@ select a1.tim_day,
   cg.tipofoco,
   a1.ite_item_id,
   a1.ite_item_title,
-  a1.optineable,
-  a1.en_bb
+  AVG(a1.optineable) as optineable,
+  AVG(a1.en_bb) as en_bb
 from WHOWNER.LK_SALES_CARTERA_GESTIONADA_AC cg
   LEFT JOIN (sel i.tim_day,
       i.cus_cust_id_sel,
@@ -38,5 +38,6 @@ from WHOWNER.LK_SALES_CARTERA_GESTIONADA_AC cg
       and a1.sit_site_id = cg.sit_site_id
   join WHOWNER.LK_CUS_CUSTOMERS_DATA cu
     on a1.cus_cust_id_sel = cu.cus_cust_id
+GROUP BY 1,2,3,4,5,6,7,8,9,10
 ) 
 	WITH DATA INDEX(TIM_DAY, SIT_SITE_ID, DOM_DOMAIN_ID);
