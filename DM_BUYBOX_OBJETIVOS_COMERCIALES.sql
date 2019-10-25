@@ -1,6 +1,6 @@
 DROP TABLE TABLEAU_TBL.DM_BUYBOX_OBJETIVOS_COMERCIALES;
 create MULTISET  TABLE TABLEAU_TBL.DM_BUYBOX_OBJETIVOS_COMERCIALES AS (
-sel a1.tim_day,
+select a1.tim_day,
   a1.sit_site_id,
   a1.cus_cust_id_sel,
   a1.dom_domain_id,
@@ -8,20 +8,20 @@ sel a1.tim_day,
   cg.asesor,
   cg.asesor_id,
   cg.tipofoco,
-  cg.ite_official_store_id,
   a1.ite_item_id,
+  a1.ite_item_title,
   a1.optineable,
   a1.en_bb
 from WHOWNER.LK_SALES_CARTERA_GESTIONADA_AC cg
   LEFT JOIN (sel i.tim_day,
       i.cus_cust_id_sel,
       i.ite_item_id,
-      ip.ITE_OFFICIAL_STORE_ID,
+      ip.ite_item_title,
       i.sit_site_id,
       d.dom_domain_id,
-      i.ite_var_opt_ready_for_optin as optineable,
       (case when i.ite_var_opt_ready_for_optin = 1
-        or i.ite_var_opt_competing = 1 then 1 else 0 end) as en_bb
+        or i.ite_var_opt_competing = 1 then 1 else 0 end) as optineable,
+      i.ite_var_opt_competing as en_bb
     from WHOWNER.LK_BUYBOX_ITEMS_OPT_HIST i
     RIGHT JOIN WHOWNER.LK_PRD_DOMAIN_PRODUCTS d
       on i.ctlg_prod_id = d.prd_product_id
@@ -36,7 +36,6 @@ from WHOWNER.LK_SALES_CARTERA_GESTIONADA_AC cg
         or i.ite_var_opt_competing = 1)) as a1
     on a1.cus_cust_id_sel = cg.cus_cust_id_sel
       and a1.sit_site_id = cg.sit_site_id
-      and a1.ITE_OFFICIAL_STORE_ID = cg.ITE_OFFICIAL_STORE_ID
   join WHOWNER.LK_CUS_CUSTOMERS_DATA cu
     on a1.cus_cust_id_sel = cu.cus_cust_id
 ) 
