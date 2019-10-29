@@ -32,7 +32,6 @@ from WHOWNER.LK_SALES_CARTERA_GESTIONADA_AC cg
     where i.sit_site_id in ('MLA', 'MLB', 'MLM')
       and i.tim_day = date - 1
       and (i.ite_var_opt_ready_for_optin = 1
-        or i.ite_var_opt_already_opted_in = 1
         or i.ite_var_opt_competing = 1)) as a1
     on a1.cus_cust_id_sel = cg.cus_cust_id_sel
       and a1.sit_site_id = cg.sit_site_id
