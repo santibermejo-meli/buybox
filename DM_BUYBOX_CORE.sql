@@ -195,57 +195,90 @@ COMMIT PRESERVE ROWS;
 
 COLLECT STATISTICS COLUMN (SIT_SITE_ID,PRD_PRODUCT_ID,DOM_DOMAIN_ID) ON DM_LL;
 
+DELETE FROM TABLEAU_TBL.DM_BUYBOX_TBL_TEST WHERE tim_day = DATE - 1;
 
-INSERT INTO TABLEAU_TBL.DM_BUYBOX_TBL_TEST
- (SELECT  date -1 as tim_day,
-          coalesce(b.sit_site_id, n.sit_site_id, ll.sit_site_id, ap.sit_site_id) sit_Site_id,
-          coalesce(b.prd_product_id, n.prd_product_id, ll.prd_product_id, ap.prd_id) prd_product_id,
-          coalesce(b.dom_domain_id, n.dom_domain_id, ll.dom_domain_id, ap.dom_domain_id) dom_domain_id,
-          ap.prd_name,
-          ap.par_id,
-          ap.last_upd,
-          ap.par_name,
-          ap.rama,
-          ap.status_bb,
-          sum(nol) NOLS_SITE,
-          sum(nol_buy_box) NOLS_BB,
-          sum(GMV) GMV_SITE,
-          SUM(GMV_BB) GMV_BB,
-          SUM(GMV_prod) GMV_PROD,
-          sum(SI) SI_SITE,
-          SUM(SI_BB) SI_BB,
-          SUM(SI_prod) SI_PROD,
-          SUM(sellers) SELLERS_SITE,
-          SUM(sellers_BB) SELLERS_BB,
-          SUM(sellers_prod) SELLERS_PROD,
-          null as orders_totales,
-          null as orders_paid,
-          null AS orders_cancelled,
-          null AS cancelled_by_seller,
-          sum(ll) ll,
-          sum(ll_buy_box) ll_buy_box,
-          sum(ls) ls,
-          sum(ls_buy_box) ls_buy_box
-   FROM DM_BIDS b
-   FULL OUTER JOIN DM_NOLS n
-    ON b.sit_site_id = n.sit_site_id
-     AND b.prd_product_id = n.prd_product_id
-     AND b.dom_domain_id = n.dom_domain_id
-   FULL OUTER JOIN DM_ll ll 
-    ON coalesce(b.sit_site_id, n.sit_site_id, o.sit_site_id) = ll.sit_site_id
-     AND coalesce(b.prd_product_id, n.prd_product_id, o.prd_product_id) = ll.prd_product_id
-     AND coalesce(b.dom_domain_id, n.dom_domain_id, o.dom_domain_id) = ll.dom_domain_id
-   FULL OUTER JOIN products_totales ap 
-    ON coalesce(b.prd_product_id, n.prd_product_id, o.prd_product_id, ll.prd_product_id) = ap.prd_id
-     AND coalesce(b.sit_site_id, n.sit_site_id, o.sit_site_id, ll.sit_site_id) = ap.sit_site_id
-   GROUP BY 1,2,3,4,5,6,7,8,9,10)
-   
-   
-   
-UPDATE TABLEAU_TBL.DM_BUYBOX_TBL_TEST b
-inner join DM_ORDERS o 
-  on b.tim_day = o.tim_day
-set b.orders_totales = o.orders_totales,
-  b.orders_paid = o.orders_paid,
-  b.orders_cancelled = o.orders_cancelled,
-  b.cancelled_by_seller = o.cancelled_by_seller
+INSERT INTO TABLEAU_TBL.DM_BUYBOX_TBL_TEST (
+          tim_day, 
+          sit_Site_id,
+          prd_product_id,
+          dom_domain_id,
+          prd_name,
+          par_id,
+          last_upd,
+          par_name,
+          rama,
+          status_bb,
+          NOLS_SITE,
+          NOLS_BB,
+          GMV_SITE,
+          GMV_BB,
+          GMV_PROD,
+          SI_SITE,
+          SI_BB,
+          SI_PROD,
+          SELLERS_SITE,
+          SELLERS_BB,
+          SELLERS_PROD,
+          orders_totales,
+          orders_paid,
+          orders_cancelled,
+          cancelled_by_seller,
+          ll,
+          ll_buy_box,
+          ls,
+          ls_buy_box
+)
+SELECT  date -1 as tim_day,
+      coalesce(b.sit_site_id, n.sit_site_id, ll.sit_site_id, ap.sit_site_id) sit_Site_id,
+      coalesce(b.prd_product_id, n.prd_product_id, ll.prd_product_id, ap.prd_id) prd_product_id,
+      coalesce(b.dom_domain_id, n.dom_domain_id, ll.dom_domain_id, ap.dom_domain_id) dom_domain_id,
+      ap.prd_name,
+      ap.par_id,
+      ap.last_upd,
+      ap.par_name,
+      ap.rama,
+      ap.status_bb,
+      sum(nol) NOLS_SITE,
+      sum(nol_buy_box) NOLS_BB,
+      sum(GMV) GMV_SITE,
+      SUM(GMV_BB) GMV_BB,
+      SUM(GMV_prod) GMV_PROD,
+      sum(SI) SI_SITE,
+      SUM(SI_BB) SI_BB,
+      SUM(SI_prod) SI_PROD,
+      SUM(sellers) SELLERS_SITE,
+      SUM(sellers_BB) SELLERS_BB,
+      SUM(sellers_prod) SELLERS_PROD,
+      null as orders_totales,
+      null as orders_paid,
+      null AS orders_cancelled,
+      null AS cancelled_by_seller,
+      sum(ll) ll,
+      sum(ll_buy_box) ll_buy_box,
+      sum(ls) ls,
+      sum(ls_buy_box) ls_buy_box
+FROM DM_BIDS b
+FULL OUTER JOIN DM_NOLS n
+ON b.sit_site_id = n.sit_site_id
+ AND b.prd_product_id = n.prd_product_id
+ AND b.dom_domain_id = n.dom_domain_id
+FULL OUTER JOIN DM_ll ll 
+ON coalesce(b.sit_site_id, n.sit_site_id) = ll.sit_site_id
+ AND coalesce(b.prd_product_id, n.prd_product_id) = ll.prd_product_id
+ AND coalesce(b.dom_domain_id, n.dom_domain_id) = ll.dom_domain_id
+FULL OUTER JOIN products_totales ap 
+ON coalesce(b.prd_product_id, n.prd_product_id, ll.prd_product_id) = ap.prd_id
+ AND coalesce(b.sit_site_id, n.sit_site_id, ll.sit_site_id) = ap.sit_site_id
+GROUP BY 1,2,3,4,5,6,7,8,9,10;
+
+
+UPDATE TABLEAU_TBL.DM_BUYBOX_TBL_TEST 
+FROM DM_ORDERS
+SET orders_totales = DM_ORDERS.orders_totales,
+  orders_paid = DM_ORDERS.orders_paid,
+  orders_cancelled = DM_ORDERS.orders_cancelled,
+  cancelled_by_seller = DM_ORDERS.cancelled_by_seller
+WHERE TABLEAU_TBL.DM_BUYBOX_TBL_TEST.tim_day = DM_ORDERS.tim_day
+  AND TABLEAU_TBL.DM_BUYBOX_TBL_TEST.sit_site_id = DM_ORDERS.sit_site_id
+  AND TABLEAU_TBL.DM_BUYBOX_TBL_TEST.prd_product_id = DM_ORDERS.prd_product_id
+  AND TABLEAU_TBL.DM_BUYBOX_TBL_TEST.dom_domain_id = DM_ORDERS.dom_domain_id
