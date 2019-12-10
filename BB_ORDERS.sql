@@ -1,3 +1,13 @@
+create multiset volatile table DOMAINS as (
+select distinct prd.dom_domain_id
+from whowner.LK_BUYBOX_PRODUCT_STATUS prd_stat
+left join WHOWNER.LK_PRD_DOMAIN_PRODUCTS prd 
+  on prd.prd_product_id = prd_stat.prd_product_id 
+    and prd.sit_site_id = prd_stat.sit_site_id
+where status = 'active'
+)
+with data primary index (dom_domain_id) on commit preserve rows;
+
 create multiset volatile table ORDERS as (
   SELECT B.TIM_DAY_WINNING_DATE,
         B.SIT_SITE_ID,
@@ -23,6 +33,8 @@ create multiset volatile table ORDERS as (
         CASE WHEN SI_FUERA_BB = 0 THEN 0 ELSE GMV_FUERA_BB/SI_FUERA_BB END AS ASP_FUERA_BB,
         CASE WHEN SI_BB = 0 THEN 0 ELSE GMV_BB/SI_BB END AS ASP_BB
   FROM BT_BIDS B
+  JOIN DOMAINS d
+    ON d.dom_domain_id = b.DOM_DOMAIN_ID
   LEFT JOIN WHOWNER.LK_SALES_CARTERA_GESTIONADA AS G
     ON B.CUS_CUST_ID_SEL = G.CUS_CUST_ID_SEL
       AND COALESCE(B.ITE_OFFICIAL_STORE_ID, 0) = G.ITE_OFFICIAL_STORE_ID
@@ -31,7 +43,6 @@ create multiset volatile table ORDERS as (
     AND B.ITE_GMV_FLAG = 1
     AND B.MKT_MARKETPLACE_ID = 'TM'
     AND B.TIM_DAY_WINNING_DATE = date - 1
-    AND B.SIT_SITE_ID IN ('MLA','MLB','MLM')
   GROUP BY 1,2,3,4,5
 )
 with data primary index (TIM_DAY_WINNING_DATE, SIT_SITE_ID, DOM_DOMAIN_ID, SEGMENTO) on commit preserve rows;
