@@ -1,5 +1,7 @@
-create multiset volatile table ITEMS as (
-  SELECT  date - 1 AS tim_day_WINNING_DATE,
+DELETE FROM TABLEAU_TBL.DM_BUYBOX_SELLERS_LL WHERE TIM_DAY_WINNING_DATE = DATE - 1;
+
+INSERT INTO TABLEAU_TBL.DM_BUYBOX_SELLERS_LL
+  SELECT  date - 1 AS TIM_DAY_WINNING_DATE,
     I.sit_site_id,
     I.ITE_DOM_DOMAIN_ID,
     (CASE WHEN COALESCE(I.ITE_OFFICIAL_STORE_ID, 0) > 0 THEN 'TIENDA OFICIAL'
@@ -25,9 +27,9 @@ create multiset volatile table ITEMS as (
     ON I.CAT_CATEG_ID=CAT.CAT_CATEG_ID_L7
       AND I.PHOTO_ID=CAT.PHOTO_ID
       AND I.SIT_SITE_ID=CAT.SIT_SITE_ID
-    JOIN WHOWNER.LK_CUS_CUSTOMERS_PH   CUS
-        ON I.PHOTO_ID=CUS.PHOTO_ID 
-        AND I.CUS_CUST_ID_SEL=CUS.CUS_CUST_ID
+  JOIN WHOWNER.LK_CUS_CUSTOMERS_PH   CUS
+    ON I.PHOTO_ID=CUS.PHOTO_ID 
+      AND I.CUS_CUST_ID_SEL=CUS.CUS_CUST_ID
   WHERE (CAT.CAT_CATEG_ID_L1 IN ('1459', '1743')  OR  CAT.SIT_SITE_ID IN ('ABN') OR I.ITE_BASE_CURRENT_PRICE < 10000) 
     AND I.PHOTO_ID='TODATE' 
     AND I.ITE_AUCTION_STOP BETWEEN DATE -1 AND (I.ITE_ITEM_DURATION + (DATE-1) - 1)
@@ -37,9 +39,7 @@ create multiset volatile table ITEMS as (
     AND I.ite_deleted = 0 
     AND I.ite_credit_policy_status is null
     AND I.ite_prontuario_status is  null
-    AND CUS.PHOTO_ID='TODATE' 
+    AND CUS.PHOTO_ID ='TODATE' 
     AND I.sit_site_id IN ('MLA','MLB','MLM')
     AND h.tim_day = date - 1
   GROUP BY 1,2,3,4
-)
-with data primary index (TIM_DAY_WINNING_DATE, SIT_SITE_ID, ITE_DOM_DOMAIN_ID, SEGMENTO) on commit preserve rows;
