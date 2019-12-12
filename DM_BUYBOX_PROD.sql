@@ -54,21 +54,56 @@ left join LK_BUYBOX_PRODUCT_STATUS prd_stat
   on prd_stat.prd_product_id = prd.prd_id 
     and prd_stat.sit_Site_id = prd.sit_site_id
     and prd_stat.status = 'active'
-) with data index(prd_id_string) on commit preserve rows;
+) with data index(SIT_SITE_ID, DOM_DOMAIN_ID, prd_id_string) on commit preserve rows;
 
 COLLECT STATISTICS COLUMN (PRD_ID) ON products_totales;
 COLLECT STATISTICS COLUMN (SIT_SITE_ID ,PRD_ID) ON products_totales;
 COLLECT STATISTICS COLUMN (SIT_SITE_ID) ON products_totales;
 
-
+create MULTISET VOLATILE TABLE sellers_ll as (
 select p.*,
-  count(distinct l.CUS_CUST_ID_SEL) sellers
-  count(distinct case when livelistings_catalog > 0 then l.CUS_CUST_ID_SEL end) sellers_bb
-  sum(livelistings) as ll,
-  sum(livelistings_catalog) as ll_bb,
+  count(distinct l.CUS_CUST_ID_SEL) sellers,
+  count(distinct case when livelistings_catalog > 0 then l.CUS_CUST_ID_SEL end) sellers_bb,
+  COALESCE(sum(livelistings),0) as ll,
+  COALESCE(sum(livelistings_catalog),0) as ll_bb
 from products_totales p
-join WHOWNER.BT_LIVE_LISTINGS_SEL l
+left join WHOWNER.BT_LIVE_LISTINGS_SEL l
   on p.prd_id = l.ctlg_prod_id
     and p.sit_site_id = l.sit_site_id
-where livelistings_catalog > 0
+where l.tim_Day = date - 1
 group by 1,2,3,4,5,6,7,8,9,10
+) with data index(SIT_SITE_ID, DOM_DOMAIN_ID, prd_id_string) on commit preserve rows;
+
+
+create MULTISET VOLATILE TABLE precios as (
+select p.prd_id_string,
+      MIN(i.ITE_SITE_CURRENT_PRICE) precio_vip,
+      MIN(c.comp_item_price) precio_comp
+from products_totales p
+join WHOWNER.LK_BUYBOX_ITEMS_OPT_HIST h
+  ON p.prd_id = h.ctlg_prod_id
+    and p.sit_site_id = h.sit_site_id
+join WHOWNER.LK_ITE_ITEMS_PH i
+  on h.ite_item_id = i.ite_item_id
+    and h.sit_site_id = i.sit_site_id
+left join WHOWNER.LK_COMP_BUYBOX c
+  on c.prd_product_id = p.prd_id
+    and c.sit_site_id = p.sit_site_id
+where rama = 'child'
+  and status_bb = 'bb'
+  and h.tim_day = date - 1
+  and h.ite_var_opt_already_opted_in = 1
+  and i.photo_id = 'TODATE'
+  and i.sit_site_id IN ('MLA','MLB','MLM')
+group by 1
+) with data index(prd_id_string) on commit preserve rows;
+
+DELETE FROM TABLEAU_TBL.DM_BUYBOX_PROD;
+
+INSERT INTO TABLEAU_TBL.DM_BUYBOX_PROD
+select s.*,
+  p.precio_vip,
+  p.precio_comp
+from sellers_ll s
+left join precios p
+  on s.prd_id_string = p.prd_id_string;
