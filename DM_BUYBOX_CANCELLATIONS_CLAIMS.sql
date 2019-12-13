@@ -8,15 +8,16 @@ where status = 'active'
 )
 with data primary index (dom_domain_id) on commit preserve rows;
 
-create multiset volatile table BIDS_BB as (
+create multiset volatile table BIDS as (
 SELECT B.TIM_DAY_WINNING_DATE,
   B.SIT_SITE_ID,
   B.DOM_DOMAIN_ID,
   B.ORD_ORDER_ID,
   B.ITE_OFFICIAL_STORE_ID,
   b.BID_QUANTITY_OK,
-  B.BID_SITE_CURRENT_PRICE,
-  B.CUS_CUST_ID_SEL
+  B.BID_CURRENT_PRICE,
+  B.CUS_CUST_ID_SEL,
+  b.ite_catalog_listing
 FROM WHOWNER.BT_BIDS B
 JOIN DOMAINS D
   ON D.dom_domain_id = B.DOM_DOMAIN_ID
@@ -24,8 +25,7 @@ WHERE B.PHOTO_ID = 'TODATE'
   AND B.ITE_GMV_FLAG = 1
   AND B.MKT_MARKETPLACE_ID = 'TM'
   AND B.SIT_SITE_ID IN ('MLA','MLB','MLM')
-  and b.ite_catalog_LISTING = 1
-  AND tim_day_winning_date >= DATE - 90
+  AND tim_day_winning_date between DATE - 90 and date - 1
 )
 with data primary index (TIM_DAY_WINNING_DATE,SIT_SITE_ID,DOM_DOMAIN_ID) on commit preserve rows;
 
@@ -38,11 +38,15 @@ SELECT B.TIM_DAY_WINNING_DATE,
   (CASE WHEN COALESCE(B.ITE_OFFICIAL_STORE_ID, 0) > 0 THEN 'TIENDA OFICIAL'
          WHEN COALESCE(B.ITE_OFFICIAL_STORE_ID, 0) = 0 AND G.CUS_CUST_ID_SEL IS NOT NULL THEN 'CARTERA GESTIONADA'
    ELSE 'LONG TAIL' END) AS SEGMENTO,
-  COALESCE(SUM(b.BID_QUANTITY_OK * B.BID_SITE_CURRENT_PRICE),0) GMV_BB,
-  COALESCE(SUM(CASE WHEN C.ORD_ORDER_ID IS NOT NULL THEN b.BID_QUANTITY_OK * B.BID_SITE_CURRENT_PRICE END),0) GMV_BB_CANCELLED,
-  COUNT(B.ord_order_id) ORDERS_BB,
-  COUNT(X.ord_order_id) ORDERS_CASES_BB
-FROM BIDS_BB B
+  COALESCE(SUM(b.BID_QUANTITY_OK * B.BID_CURRENT_PRICE),0) GMV_DOMAINS_ACTIVE,
+  COALESCE(SUM(CASE WHEN C.ORD_ORDER_ID IS NOT NULL THEN b.BID_QUANTITY_OK * B.bid_current_price END),0) GMV_DOMAINS_ACTIVE_CANCELLED,
+  COALESCE(SUM(case when b.ite_catalog_listing = 1 then b.BID_QUANTITY_OK * B.BID_CURRENT_PRICE END),0) GMV_BB,
+  COALESCE(SUM(CASE WHEN C.ORD_ORDER_ID IS NOT NULL and b.ite_catalog_listing = 1 THEN b.BID_QUANTITY_OK * B.BID_CURRENT_PRICE END),0) GMV_BB_CANCELLED,
+  COUNT(B.ord_order_id) ORDERS_DOMAINS_ACTIVE,
+  COUNT(X.ord_order_id) ORDERS_CASES_DOMAINS_ACTIVE,
+  COUNT(case when b.ite_catalog_listing = 1 then B.ord_order_id end) ORDERS_BB,
+  COUNT(case when b.ite_catalog_listing = 1 then X.ord_order_id end) ORDERS_CASES_BB
+FROM BIDS B
 LEFT JOIN WHOWNER.BT_CM_ORDERS_CANCELLED C
   ON B.ORD_ORDER_ID = C.ord_order_id
     AND B.SIT_SITE_ID = C.sit_site_id
