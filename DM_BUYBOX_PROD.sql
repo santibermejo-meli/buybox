@@ -82,6 +82,7 @@ left join WHOWNER.LK_ITE_ITEMS_PH i
     and i.ite_ll_flag = 1
     and ite_auction_start >= '2019-05-28'
     and i.sit_site_id IN ('MLA','MLB','MLM')
+    and ITE_CONDITION = 'new'
 left join WHOWNER.LK_COMP_BUYBOX c
   on c.prd_product_id = p.prd_product_id
     and c.sit_site_id = p.sit_site_id
