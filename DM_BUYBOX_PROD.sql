@@ -1,109 +1,109 @@
-create multiset volatile table products_activos as (
-select prd_stat.prd_product_id, 
-      prd_stat.sit_site_id, 
-      prd.prd_name, 
-      prd.dom_domain_id, 
-      cast(coalesce( substr(prd.prd_parent_id, 4), prd.prd_product_id) as int) parent_id, 
-      cast(prd_stat.PRD_CREATION_DT as date) PRD_CREATION_DT
-from whowner.LK_BUYBOX_PRODUCT_STATUS prd_stat
-left join WHOWNER.LK_PRD_DOMAIN_PRODUCTS prd 
-  on  prd.prd_product_id = prd_stat.prd_product_id 
-    and prd.sit_site_id = prd_stat.sit_site_id
-where status = 'active'
-) with data index(prd_product_id,sit_site_id ) on commit preserve rows ;
-
-COLLECT STATISTICS COLUMN (DOM_DOMAIN_ID) ON products_activos;
-
-create multiset volatile table dom_activos as (
-select dom_domain_id from products_activos group by 1
-) with data index(dom_domain_id ) on commit preserve rows ;
-
-COLLECT STATISTICS COLUMN (DOM_DOMAIN_ID) ON dom_activos;
-
-create MULTISET VOLATILE TABLE products_totales_pre as (
-select prd.dom_domain_id, 
-  prd.sit_site_id, 
-  prd.prd_product_id prd_id ,   
-  prd.prd_name prd_name,
-  cast(trim(prd.sit_site_id) || cast(cast(prd.prd_product_id as int) as varchar(50)) as varchar(255)) prd_id_string,
-  prd_parent_id
-from whowner.LK_PRD_DOMAIN_PRODUCTS prd 
-join dom_activos dom 
-  on dom.dom_domain_id = prd.dom_domain_id
-) with data index(prd_id_string) on commit preserve rows;
-
-COLLECT STATISTICS COLUMN (PRD_PARENT_ID) ON products_totales_pre;
-COLLECT STATISTICS COLUMN (PRD_ID_STRING) ON products_totales_pre;
-COLLECT STATISTICS COLUMN (SIT_SITE_ID ,PRD_ID) ON products_totales_pre;
-
-create MULTISET VOLATILE TABLE products_totales as (
-select prd.prd_id_string,
-  prd.dom_domain_id, 
-  prd.sit_site_id, 
-  prd.prd_id prd_id ,   
-  prd.prd_name prd_name,
-  coalesce(par.prd_id, prd.prd_id) par_id,
-  coalesce(par.prd_name, prd.prd_name) par_name,
-  case when par.prd_id is null then 'parent' else 'child' end as rama,
-  case when prd_stat.prd_product_id is not null then 'bb' else 'no bb' end as status_bb,
-  cast(prd_stat.PRD_CREATION_DT as date) PRD_CREATION_DT 
-from products_totales_pre prd
-left join products_totales_pre par 
-  on par.prd_id_string = prd.prd_parent_id
-left join LK_BUYBOX_PRODUCT_STATUS prd_stat 
-  on prd_stat.prd_product_id = prd.prd_id 
-    and prd_stat.sit_Site_id = prd.sit_site_id
-    and prd_stat.status = 'active'
-) with data index(SIT_SITE_ID, DOM_DOMAIN_ID, prd_id_string) on commit preserve rows;
-
-COLLECT STATISTICS COLUMN (PRD_ID) ON products_totales;
-COLLECT STATISTICS COLUMN (SIT_SITE_ID ,PRD_ID) ON products_totales;
-COLLECT STATISTICS COLUMN (SIT_SITE_ID) ON products_totales;
-
-create MULTISET VOLATILE TABLE sellers_ll as (
-select p.*,
-  count(distinct l.CUS_CUST_ID_SEL) sellers,
-  count(distinct case when livelistings_catalog > 0 then l.CUS_CUST_ID_SEL end) sellers_bb,
+create MULTISET VOLATILE TABLE products_hijos as (
+select p.sit_site_id,
+  p.DOM_DOMAIN_ID,
+  p.prd_product_id,
+  d.PRD_NAME,
+  p.ITE_ITEM_ID_WINNER as ite_winner_bb,
+  p.ITE_PRICE_WINNER as precio_win_bb,
+  cast(coalesce( substr(d.prd_parent_id, 4), d.prd_product_id) as int) prd_parent_id,
+  count(distinct l.CUS_CUST_ID_SEL) ls,
+  count(distinct case when livelistings_catalog > 0 then l.CUS_CUST_ID_SEL end) ls_bb,
   COALESCE(sum(livelistings),0) as ll,
   COALESCE(sum(livelistings_catalog),0) as ll_bb
-from products_totales p
+from WHOWNER.LK_BUYBOX_PRODUCT_STATUS p
+LEFT JOIN WHOWNER.LK_PRD_DOMAIN_PRODUCTS d
+  ON d.PRD_PRODUCT_ID = p.PRD_PRODUCT_ID
+    and d.sit_site_id = p.sit_site_id
+left join WHOWNER.LK_ITE_ITEMS_PH i
+  on p.sit_site_id = i.sit_site_id
+    and p.prd_product_id = i.ctlg_prod_id 
+    and i.PHOTO_ID = 'TODATE'
 left join WHOWNER.BT_LIVE_LISTINGS_SEL l
-  on p.prd_id = l.ctlg_prod_id
+  on p.prd_product_id = l.ctlg_prod_id
     and p.sit_site_id = l.sit_site_id
-where l.tim_Day = date - 1
-group by 1,2,3,4,5,6,7,8,9,10
-) with data index(SIT_SITE_ID, DOM_DOMAIN_ID, prd_id_string) on commit preserve rows;
+    and l.tim_Day = date - 1
+where p.status = 'active'
+group by 1,2,3,4,5,6,7
+) with data index(SIT_SITE_ID, prd_product_id) on commit preserve rows;
 
+
+create MULTISET VOLATILE TABLE products_hijos_pro as (
+select p.sit_site_id,
+  p.DOM_DOMAIN_ID,
+  p.prd_product_id,
+  p.PRD_NAME,
+  p.PRD_PARENT_ID,
+  d.prd_name par_name,
+  p.ite_winner_bb,
+  p.precio_win_bb,
+  p.ls,
+  p.ls_bb,
+  p.ll,
+  p.ll_bb
+from products_hijos p
+left join LK_PRD_DOMAIN_PRODUCTS d
+  on p.prd_parent_id = d.prd_product_id
+    and p.sit_site_id = d.sit_site_id
+) with data index(SIT_SITE_ID, prd_product_id) on commit preserve rows;
+
+
+create MULTISET VOLATILE TABLE gmv_si as (
+select p.sit_site_id,
+  p.prd_product_id,
+  SUM(b.BID_BASE_CURRENT_PRICE * b.BID_QUANTITY_OK) GMV,
+  SUM(b.BID_SITE_CURRENT_PRICE * b.BID_QUANTITY_OK) GMV_LC,
+  SUM(case when b.ite_catalog_listing = 1 then b.BID_BASE_CURRENT_PRICE * b.BID_QUANTITY_OK end ) GMV_BB,
+  SUM(case when b.ite_catalog_listing = 1 then b.BID_SITE_CURRENT_PRICE * b.BID_QUANTITY_OK end ) GMV_BB_LC,
+  sum(b.BID_QUANTITY_OK) SI,
+  SUM(case when b.ite_catalog_listing = 1 then b.BID_QUANTITY_OK end ) SI_BB
+from products_hijos p
+left join bt_bids b
+  on p.prd_product_id = b.CTLG_PROD_ID
+    and p.sit_site_id = b.sit_site_id
+    and b.photo_id = 'TODATE'
+    AND B.SIT_SITE_ID IN ('MLA', 'MLB', 'MLM') 
+    and b.tim_day_winning_date BETWEEN date -31 AND date -1
+    and b.ite_gmv_flag = 1
+group by 1,2
+) with data index(SIT_SITE_ID, prd_product_id) on commit preserve rows;
 
 create MULTISET VOLATILE TABLE precios as (
-select p.prd_id_string,
-      MIN(i.ITE_SITE_CURRENT_PRICE) precio_vip,
+select p.sit_site_id,
+      p.prd_product_id,
+      MIN(i.ITE_CURRENT_PRICE) precio_vip,
       MIN(c.comp_item_price) precio_comp
-from products_totales p
-join WHOWNER.LK_BUYBOX_ITEMS_OPT_HIST h
-  ON p.prd_id = h.ctlg_prod_id
-    and p.sit_site_id = h.sit_site_id
-join WHOWNER.LK_ITE_ITEMS_PH i
-  on h.ite_item_id = i.ite_item_id
-    and h.sit_site_id = i.sit_site_id
+from products_hijos p
+left join WHOWNER.LK_ITE_ITEMS_PH i
+  on p.prd_product_id = i.ctlg_prod_id
+    and p.sit_site_id = i.sit_site_id
+    and i.ite_catalog_listing = 0
+    and i.photo_id = 'TODATE'
+    and i.ite_status = 'active'
+    and i.ite_ll_flag = 1
+    and ite_auction_start >= '2019-05-28'
+    and i.sit_site_id IN ('MLA','MLB','MLM')
 left join WHOWNER.LK_COMP_BUYBOX c
-  on c.prd_product_id = p.prd_id
+  on c.prd_product_id = p.prd_product_id
     and c.sit_site_id = p.sit_site_id
-where rama = 'child'
-  and status_bb = 'bb'
-  and h.tim_day = date - 1
-  and h.ite_var_opt_already_opted_in = 1
-  and i.photo_id = 'TODATE'
-  and i.sit_site_id IN ('MLA','MLB','MLM')
-group by 1
-) with data index(prd_id_string) on commit preserve rows;
+    and c.photo_id = 'TODATE'
+where i.sit_site_id IN ('MLA','MLB','MLM')
+group by 1,2
+) with data index(SIT_SITE_ID, prd_product_id) on commit preserve rows;
 
-DELETE FROM TABLEAU_TBL.DM_BUYBOX_PROD;
-
-INSERT INTO TABLEAU_TBL.DM_BUYBOX_PROD
-select s.*,
-  p.precio_vip,
-  p.precio_comp
-from sellers_ll s
-left join precios p
-  on s.prd_id_string = p.prd_id_string;
+insert into TABLEAU_TBL.DM_BUYBOX_PROD 
+select p.*,
+  g.GMV,
+  g.GMV_LC,
+  g.GMV_BB,
+  g.GMV_BB_LC,
+  g.SI,
+  g.SI_BB,
+  s.precio_vip,
+  s.precio_comp
+from products_hijos_pro p
+left join gmv_si g
+  on p.sit_site_id = g.sit_site_id
+    and p.prd_product_id = g.prd_product_id
+left join precios s
+  on p.sit_site_id = s.sit_site_id
+    and p.prd_product_id = s.prd_product_id
