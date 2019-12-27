@@ -91,7 +91,9 @@ where i.sit_site_id IN ('MLA','MLB','MLM')
 group by 1,2
 ) with data index(SIT_SITE_ID, prd_product_id) on commit preserve rows;
 
-insert into TABLEAU_TBL.DM_BUYBOX_PROD 
+delete from TABLEAU_TBL.DM_BUYBOX_PROD;
+
+insert into TABLEAU_TBL.DM_BUYBOX_PROD
 select p.*,
   g.GMV,
   g.GMV_LC,
@@ -107,4 +109,16 @@ left join gmv_si g
     and p.prd_product_id = g.prd_product_id
 left join precios s
   on p.sit_site_id = s.sit_site_id
-    and p.prd_product_id = s.prd_product_id
+    and p.prd_product_id = s.prd_product_id;
+    
+delete from TABLEAU_TBL.DM_BUYBOX_PROD_HIST WHERE TIM_DAY_WINNING_DATE = date - 1;
+
+insert into TABLEAU_TBL.DM_BUYBOX_PROD_HIST
+SELECT DATE - 1 AS TIM_DAY_WINNING_DATE,
+  SIT_SITE_ID,
+  dom_domain_id,
+  COUNT(DISTINCT prd_product_id) BB_READY,
+  COUNT(DISTINCT CASE WHEN LL_BB > 0 THEN prd_product_id END) BB_WITH_OFFER,
+  COUNT(DISTINCT CASE WHEN LL_BB > 0 AND ite_winner_bb IS NOT NULL THEN prd_product_id END) BB_WITH_WINNER
+FROM products_hijos_pro
+GROUP BY 1,2,3;
