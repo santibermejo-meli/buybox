@@ -7,74 +7,51 @@ left join WHOWNER.LK_PRD_DOMAIN_PRODUCTS prd
 where status = 'active'
 ) with data primary index (dom_domain_id) on commit preserve rows;
 
+create multiset volatile table DM_LL as (
+  select 
+    ll.tim_Day, 
+    ll.sit_site_id, 
+    d.dom_domain_id , 
+    sum(livelistings) as ll, 
+    sum(livelistings_catalog) as ll_bb, 
+    count(distinct cus_cust_id_sel) as ls, 
+    count(distinct case when livelistings_catalog > 0 then cus_cust_id_sel end) as ls_bb
+  from WHOWNER.BT_LIVE_LISTINGS_SEL ll 
+  join  DOMAINS d 
+   on ll.dom_domain_id = d.dom_domain_id
+  where ll.tim_Day between date - 31 and date - 1
+  and ll.sit_site_id in('MLA', 'MLM', 'MLB')
+group by 1,2,3) with data index(tim_day, sit_site_id, dom_domain_id ) on commit preserve rows;
+
+
+create multiset volatile table DM_OPTIN as (
+  select h.tim_Day,
+    h.SIT_SITE_ID,
+    d.dom_domain_id,
+    count(distinct case when h.ITE_OPT_ELEGIBLE = 1 and H.ite_var_opt_competing = 0 then H.ite_item_id end) as ll_optineables,
+    count(distinct case when h.ITE_OPT_ELEGIBLE = 1 and H.ite_var_opt_competing = 0 then H.cus_cust_id_sel end) as ls_optineables 
+  FROM WHOWNER.LK_BUYBOX_ITEMS_OPT_HIST h
+  join LK_PRD_DOMAIN_PRODUCTS d
+    on h.ctlg_prod_id = d.PRD_PRODUCT_ID
+      and h.sit_site_id = d.sit_site_id
+  where tim_Day between date - 31 and date - 1
+group by 1,2,3) with data index(tim_day, sit_site_id, dom_domain_id ) on commit preserve rows;
+
 DELETE FROM TABLEAU_TBL.DM_BUYBOX_SELLERS_LL WHERE TIM_DAY_WINNING_DATE = DATE - 1;
 
 INSERT INTO TABLEAU_TBL.DM_BUYBOX_SELLERS_LL
-select date - 1 as tim_day_winning_date,
-  i.sit_site_id,
-  I.ITE_DOM_DOMAIN_ID,
-  (CASE WHEN COALESCE(I.ITE_OFFICIAL_STORE_ID, 0) > 0 THEN 'TIENDA OFICIAL'
-         WHEN COALESCE(I.ITE_OFFICIAL_STORE_ID, 0) = 0 AND G.CUS_CUST_ID_SEL IS NOT NULL THEN 'CARTERA GESTIONADA'
-   ELSE 'LONG TAIL' END) AS SEGMENTO, 
---  count(distinct case when i.ite_catalog_listing = 1 then p.PRD_PRODUCT_ID end) prds_con_oferta,
-  null as items_totales,
-  count(distinct i.ite_item_id) as items_dom_act,
-  count(distinct case when p.PRD_PRODUCT_ID is not null then i.ite_item_id end) as items_bb_ready,
-  count(distinct case when h.ite_var_opt_competing = 1 or h.ite_var_opt_ready_for_optin = 1 then i.ite_item_id end) as items_optineables,
-  count(distinct case when i.ite_catalog_listing = 1 then i.ite_item_id end) as items_bb,
-  null as sellers_totales,
-  count(distinct i.cus_cust_id_sel) as sellers_dom_act,
-  count(distinct case when p.PRD_PRODUCT_ID is not null then i.cus_cust_id_sel end) as sellers_bb_ready,
-  count(distinct case when h.ite_var_opt_competing = 1 or h.ite_var_opt_ready_for_optin = 1 then i.cus_cust_id_sel end) as sellers_optineables,
-  count(distinct case when i.ite_catalog_listing = 1 then i.cus_cust_id_sel end) as sellers_bb
-from WHOWNER.LK_ITE_ITEMS_PH i
-join domains d
-  on d.dom_domain_id = i.ite_dom_domain_id
-left join whowner.LK_BUYBOX_PRODUCT_STATUS p
- on i.ctlg_prod_id = p.PRD_PRODUCT_ID
-   and i.sit_site_id = p.sit_site_id
-   and p.status = 'active'
-left join WHOWNER.LK_BUYBOX_ITEMS_OPT_HIST h
-  ON H.ite_item_id = I.ite_item_id
-    AND H.sit_site_id = i.sit_site_id
-LEFT JOIN WHOWNER.LK_SALES_CARTERA_GESTIONADA AS G
-  ON I.CUS_CUST_ID_SEL = G.CUS_CUST_ID_SEL
-    AND COALESCE(I.ITE_OFFICIAL_STORE_ID, 0) = G.ITE_OFFICIAL_STORE_ID
-    AND date - 1 BETWEEN G.FECHA_DESDE AND COALESCE(G.FECHA_HASTA, DATE + 1)
-where i.photo_id = 'TODATE'
-   AND i.ite_status = 'active'
-   and i.ite_ll_flag = 1
-   and ite_auction_start >= '2019-05-28'
-   and i.sit_site_id IN ('MLA','MLB','MLM')
-   and i.ITE_DOM_DOMAIN_ID is not null
-group by 1,2,3,4;
-  
-INSERT INTO TABLEAU_TBL.DM_BUYBOX_SELLERS_LL
-select date - 1 as tim_day_winning_date,
-  i.sit_site_id,
-  i.sit_site_id || '-TOTAL_SITE' as ITE_DOM_DOMAIN_ID,
-  (CASE WHEN COALESCE(I.ITE_OFFICIAL_STORE_ID, 0) > 0 THEN 'TIENDA OFICIAL'
-         WHEN COALESCE(I.ITE_OFFICIAL_STORE_ID, 0) = 0 AND G.CUS_CUST_ID_SEL IS NOT NULL THEN 'CARTERA GESTIONADA'
-   ELSE 'LONG TAIL' END) AS SEGMENTO, 
---  null as prds_con_oferta,
-  count(distinct i.ite_item_id) as items_totales,
-  null as items_dom_act,
-  null as items_bb_ready,
-  null as items_optineables,
-  null as items_bb,
-  count(distinct i.cus_cust_id_sel) as sellers_totales,
-  null as sellers_dom_act,
-  null as sellers_bb_ready,
-  null as sellers_optineables,
-  null as sellers_bb
-from WHOWNER.LK_ITE_ITEMS_PH i
-LEFT JOIN WHOWNER.LK_SALES_CARTERA_GESTIONADA AS G
-ON I.CUS_CUST_ID_SEL = G.CUS_CUST_ID_SEL
-  AND COALESCE(I.ITE_OFFICIAL_STORE_ID, 0) = G.ITE_OFFICIAL_STORE_ID
-  AND date - 1 BETWEEN G.FECHA_DESDE AND COALESCE(G.FECHA_HASTA, DATE + 1)
-where i.photo_id = 'TODATE'
-   AND i.ite_status = 'active'
-   and i.ite_ll_flag = 1
-   and i.ite_auction_start >= '2019-05-28'
-   and i.sit_site_id IN ('MLA','MLB','MLM')
-group by 1,2,3,4
+select 
+	coalesce(l.tim_day, o.tim_day) tim_day_winning_date,
+	coalesce(l.sit_site_id, o.sit_site_id) sit_site_id,
+	coalesce(l.dom_domain_id, o.dom_domain_id) dom_domain_id,
+	l.ll,
+	l.ll_bb,
+	l.ls,
+	l.ls_bb,
+	o.ll_optineables,
+	o.ls_optineables
+from dm_ll l
+full outer join dm_optin o
+  on l.tim_day = o.tim_day
+    and l.sit_site_id = o.sit_site_id
+    and l.dom_domain_id = o.dom_domain_id;
